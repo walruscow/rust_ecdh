@@ -1,0 +1,9 @@
+[package]
+name = "ecdh"
+version = "0.1.0"
+authors = ["WalrusCow <willgmcd@gmail.com>"]
+
+[dependencies]
+num = "0.1"
+num-traits = "*"
+rand = "0.3"
