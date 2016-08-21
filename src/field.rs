@@ -20,7 +20,7 @@ pub struct ModularNumber {
 impl ModularNumber {
     pub fn new(value: U512, modulus: U512) -> ModularNumber {
         ModularNumber {
-            modulus: modulus.clone(),
+            modulus: modulus,
             value: value % modulus,
         }
     }
@@ -58,7 +58,7 @@ impl ModularNumber {
 
 impl fmt::Display for ModularNumber {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?} mod {:?}", &self.value, &self.modulus)
+        write!(f, "{}", &self.value)
     }
 }
 
@@ -154,6 +154,7 @@ impl cmp::PartialEq for ModularNumber {
 
 impl cmp::Eq for ModularNumber {}
 
+#[derive(Copy, Clone, Debug)]
 pub struct GF {
     pub size: U512,
 }
