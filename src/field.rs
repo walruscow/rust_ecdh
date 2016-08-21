@@ -1,12 +1,10 @@
-extern crate num;
-extern crate num_traits;
-
 use std::cmp;
 use std::fmt;
 use std::ops;
 
+use crypto_int::U512;
 use num::BigUint;
-use self::num_traits::identities::Zero;
+use num_traits::identities::Zero;
 
 /// We need a Modular Number struct, to do arithmetic mod P
 ///
@@ -17,18 +15,14 @@ use self::num_traits::identities::Zero;
 // an arbitrary container, maybe of a specified bit size or whatever
 // and that container should support a bunch of magical things
 // so that we can say ModularNumber * 3 or ModularNumber + 1
-// or whatever, hopefully
+// or whatever, hopefully... lol
 //
 // TODO: Create container like BigNum256 which uses u64 or u32 or whatever
 // to do addition and stuff. It doesn't have to be *that* fast but pretty fast
 // would be nice...
 // The type could also be semi-resistant to timing attacks, by having few
 // branches based on the numbers (always doing overflow addition or w.e.)
-//
-// TODO: How to handle multiplication with the new containers? Because if
-// we use u32 for the base layer we could convert each to u64 to multiply
-// (since the result could be 64 bits), but that would be slower than
-// having u64 from the beginning
+
 #[derive(Clone)]
 pub struct ModularNumber {
     modulus: BigUint,

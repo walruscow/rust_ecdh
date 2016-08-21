@@ -1,4 +1,6 @@
 extern crate num;
+extern crate num_traits;
+extern crate crypto_int;
 
 mod field;
 mod elliptic;
