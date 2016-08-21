@@ -1,6 +1,7 @@
 use std::cmp;
 use std::fmt;
 use std::ops;
+use std::mem;
 
 use crypto_int::U512;
 
@@ -15,6 +16,7 @@ pub struct ModularNumber {
     pub value: U512,
 }
 
+// TODO: Impl mul for u64, other ops for U512
 impl ModularNumber {
     pub fn new(value: U512, modulus: U512) -> ModularNumber {
         ModularNumber {
@@ -23,8 +25,34 @@ impl ModularNumber {
         }
     }
 
+    pub fn n(&self, x: U512) -> ModularNumber {
+        ModularNumber::new(x, self.modulus)
+    }
+
     pub fn is_zero(&self) -> bool {
         self.value.is_zero()
+    }
+
+    pub fn invert(mut self) -> ModularNumber {
+        let mut r: U512 = self.modulus;
+        let mut new_r: U512= self.value;
+
+        self.value = U512::zero();
+        let mut new_t = self.n(U512::from_u64(1));
+
+        while !new_r.is_zero() {
+            let quotient = r / new_r;
+            self -= self.n(quotient) * new_t;
+            //t -= self.n(quotient) * new_t;
+            mem::swap(&mut self, &mut new_t);
+
+            r -= quotient * new_r;
+            mem::swap(&mut r, &mut new_r);
+        }
+        if r > U512::from_u64(1) {
+            panic!()
+        }
+        self
     }
 }
 
@@ -43,6 +71,12 @@ impl ops::Add for ModularNumber {
     }
 }
 
+impl ops::AddAssign for ModularNumber {
+    fn add_assign(&mut self, rhs: ModularNumber) {
+        self.value = (self.value + rhs.value) % self.modulus;
+    }
+}
+
 impl ops::Sub for ModularNumber {
     type Output = ModularNumber;
     fn sub(mut self, rhs: ModularNumber) -> ModularNumber {
@@ -51,11 +85,24 @@ impl ops::Sub for ModularNumber {
     }
 }
 
+impl ops::SubAssign for ModularNumber {
+    fn sub_assign(&mut self, rhs: ModularNumber) {
+        self.value = (self.value + self.modulus - rhs.value) % self.modulus;
+    }
+}
+
 impl ops::Div for ModularNumber {
     type Output = ModularNumber;
-    fn div(self, rhs: ModularNumber) -> ModularNumber {
+    fn div(mut self, rhs: ModularNumber) -> ModularNumber {
         // TODO
+        self *= rhs.invert();
         self
+    }
+}
+
+impl ops::DivAssign for ModularNumber {
+    fn div_assign(&mut self, rhs: ModularNumber) {
+        *self *= rhs.invert();
     }
 }
 
@@ -67,11 +114,23 @@ impl ops::Mul for ModularNumber {
     }
 }
 
+impl ops::MulAssign for ModularNumber {
+    fn mul_assign(&mut self, rhs: ModularNumber) {
+        self.value = (self.value * rhs.value) % self.modulus;
+    }
+}
+
 impl ops::Shl<usize> for ModularNumber {
     type Output = ModularNumber;
     fn shl(mut self, rhs: usize) -> ModularNumber {
         self.value = (self.value << rhs) % self.modulus;
         self
+    }
+}
+
+impl ops::ShlAssign<usize> for ModularNumber {
+    fn shl_assign(&mut self, rhs: usize) {
+        self.value = (self.value << rhs) % self.modulus;
     }
 }
 
