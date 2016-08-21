@@ -3,34 +3,20 @@ use std::fmt;
 use std::ops;
 
 use crypto_int::U512;
-use num::BigUint;
-use num_traits::identities::Zero;
 
 /// We need a Modular Number struct, to do arithmetic mod P
 ///
 /// This should hopefully be created by some function or other
 /// GF(BigUint) -> Fn<BigUint, ModularNumber>
 
-// TODO: What we actually want is a ModularNumber thing that has
-// an arbitrary container, maybe of a specified bit size or whatever
-// and that container should support a bunch of magical things
-// so that we can say ModularNumber * 3 or ModularNumber + 1
-// or whatever, hopefully... lol
-//
-// TODO: Create container like BigNum256 which uses u64 or u32 or whatever
-// to do addition and stuff. It doesn't have to be *that* fast but pretty fast
-// would be nice...
-// The type could also be semi-resistant to timing attacks, by having few
-// branches based on the numbers (always doing overflow addition or w.e.)
-
-#[derive(Clone)]
+#[derive(Clone, Copy, Debug)]
 pub struct ModularNumber {
-    modulus: BigUint,
-    pub value: BigUint,
+    modulus: U512,
+    pub value: U512,
 }
 
 impl ModularNumber {
-    pub fn new(value: BigUint, modulus: BigUint) -> ModularNumber {
+    pub fn new(value: U512, modulus: U512) -> ModularNumber {
         ModularNumber {
             modulus: modulus.clone(),
             value: value % modulus,
@@ -44,168 +30,83 @@ impl ModularNumber {
 
 impl fmt::Display for ModularNumber {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:#0x} mod {:#0x}", &self.value, &self.modulus)
+        write!(f, "{:?} mod {:?}", &self.value, &self.modulus)
     }
 }
 
 // TODO: Need Inverse
 impl ops::Add for ModularNumber {
     type Output = ModularNumber;
-
-    fn add(self, other: ModularNumber) -> ModularNumber {
-        ModularNumber {
-            modulus: self.modulus.clone(),
-            value: (self.value + other.value) % self.modulus,
-        }
-    }
-}
-
-impl<'a> ops::Add<&'a ModularNumber> for &'a ModularNumber {
-    type Output = ModularNumber;
-
-    fn add(self, other: &'a ModularNumber) -> ModularNumber {
-        ModularNumber {
-            modulus: self.modulus.clone(),
-            value: (&self.value + &other.value) % &self.modulus,
-        }
+    fn add(mut self, rhs: ModularNumber) -> ModularNumber {
+        self.value = (self.value + rhs.value) % self.modulus;
+        self
     }
 }
 
 impl ops::Sub for ModularNumber {
     type Output = ModularNumber;
-
-    fn sub(self, other: ModularNumber) -> ModularNumber {
-        let m = &self.modulus;
-        ModularNumber {
-            modulus: m.clone(),
-            // Handle overflow
-            value: (&self.value + m - &other.value) % m,
-        }
+    fn sub(mut self, rhs: ModularNumber) -> ModularNumber {
+        self.value = (self.value + self.modulus - rhs.value) % self.modulus;
+        self
     }
 }
-
-impl<'a> ops::Sub for &'a ModularNumber {
-    type Output = ModularNumber;
-
-    fn sub(self, other: &'a ModularNumber) -> ModularNumber {
-        let m = &self.modulus;
-        ModularNumber {
-            modulus: m.clone(),
-            // Handle overflow
-            value: (&self.value + m - &other.value) % m,
-        }
-    }
-}
-
 
 impl ops::Div for ModularNumber {
     type Output = ModularNumber;
-
-    fn div(self, other: ModularNumber) -> ModularNumber {
+    fn div(self, rhs: ModularNumber) -> ModularNumber {
         // TODO
         self
     }
 }
 
-impl<'a> ops::Div for &'a ModularNumber {
-    type Output = ModularNumber;
-
-    fn div(self, other: &'a ModularNumber) -> ModularNumber {
-        // TODO
-        self.clone()
-    }
-}
-
 impl ops::Mul for ModularNumber {
     type Output = ModularNumber;
-
-    fn mul(self, other: ModularNumber) -> ModularNumber {
-        // TODO; We would like a good implementation...
-        ModularNumber {
-            modulus: self.modulus.clone(),
-            value: (&other.value * &self.value) % &self.modulus
-        }
+    fn mul(mut self, rhs: ModularNumber) -> ModularNumber {
+        self.value = (self.value * rhs.value) % self.modulus;
+        self
     }
 }
-
-impl<'a> ops::Mul for &'a ModularNumber {
-    type Output = ModularNumber;
-
-    fn mul(self, other: &ModularNumber) -> ModularNumber {
-        // TODO; We would like a good implementation...
-        ModularNumber {
-            modulus: self.modulus.clone(),
-            value: (&other.value * &self.value) % &self.modulus
-        }
-    }
-}
-
 
 impl ops::Shl<usize> for ModularNumber {
     type Output = ModularNumber;
-
-    fn shl(self, other: usize) -> ModularNumber {
-        ModularNumber {
-            modulus: self.modulus.clone(),
-            value: (self.value << other) % self.modulus,
-        }
+    fn shl(mut self, rhs: usize) -> ModularNumber {
+        self.value = (self.value << rhs) % self.modulus;
+        self
     }
 }
-
-impl<'a> ops::Shl<usize> for &'a ModularNumber {
-    type Output = ModularNumber;
-
-    fn shl(self, other: usize) -> ModularNumber {
-        ModularNumber {
-            modulus: self.modulus.clone(),
-            value: (&self.value << other) % &self.modulus,
-        }
-    }
-}
-
 
 impl ops::Neg for ModularNumber {
     type Output = ModularNumber;
-    fn neg(self) -> ModularNumber {
-        ModularNumber {
-            modulus: self.modulus.clone(),
-            value: (&self.modulus - &self.value) % &self.modulus,
-        }
-    }
-}
-
-impl<'a> ops::Neg for &'a ModularNumber {
-    type Output = ModularNumber;
-    fn neg(self) -> ModularNumber {
-        ModularNumber {
-            modulus: self.modulus.clone(),
-            value: (&self.modulus - &self.value) % &self.modulus,
-        }
+    fn neg(mut self) -> ModularNumber {
+        self.value = (self.modulus - self.value) % self.modulus;
+        self
     }
 }
 
 impl cmp::PartialEq for ModularNumber {
-    fn eq(&self, other: &ModularNumber) -> bool {
-        self.value == other.value
+    fn eq(&self, rhs: &ModularNumber) -> bool {
+        self.value == rhs.value
     }
 
-    fn ne(&self, other: &ModularNumber) -> bool {
-        self.value != other.value
+    fn ne(&self, rhs: &ModularNumber) -> bool {
+        self.value != rhs.value
     }
 }
 
+impl cmp::Eq for ModularNumber {}
+
 pub struct GF {
-    pub size: BigUint,
+    pub size: U512,
 }
 
 impl GF {
-    pub fn new(size: &BigUint) -> GF {
+    pub fn new(size: U512) -> GF {
         GF {
-            size: size.clone(),
+            size: size,
         }
     }
 
-    pub fn el(&self, x: BigUint) -> ModularNumber {
-        ModularNumber::new(x, self.size.clone())
+    pub fn el(&self, x: U512) -> ModularNumber {
+        ModularNumber::new(x, self.size)
     }
 }
