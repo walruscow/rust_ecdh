@@ -46,6 +46,22 @@ impl<'a> ops::Add<Point<'a>> for Point<'a> {
     }
 }
 
+// TODO: Why is it so slow?
+impl<'a> ops::Mul<U512> for Point<'a> {
+    type Output = Point<'a>;
+
+    fn mul(mut self, rhs: U512) -> Point<'a> {
+        if rhs.is_zero() {
+            self.curve.pt(U512::zero(), U512::zero())
+        } else if rhs.is_even() {
+            self = self * (rhs >> 1);
+            self + self
+        } else {
+            self * (rhs - U512::from_u64(1)) + self
+        }
+    }
+}
+
 impl<'a> cmp::PartialEq for Point<'a> {
     fn eq(&self, rhs: &Point) -> bool {
         self.x == rhs.x && self.y == rhs.y
