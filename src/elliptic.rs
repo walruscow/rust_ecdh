@@ -7,16 +7,16 @@ use crypto_int::U512;
 use field::{ModularNumber, GF};
 
 #[derive(Copy, Clone, Debug)]
-pub struct Point<'a> {
+pub struct Point {
     x: ModularNumber,
     y: ModularNumber,
-    curve: &'a EllipticCurve,
+    curve: Curve,
 }
 
-impl<'a> ops::Add<Point<'a>> for Point<'a> {
-    type Output = Point<'a>;
+impl ops::Add<Point> for Point {
+    type Output = Point;
 
-    fn add(mut self, other: Point<'a>) -> Point<'a> {
+    fn add(mut self, other: Point) -> Point {
         if other.x.is_zero() && other.y.is_zero() {
             // Other is zero
             return self;
@@ -47,10 +47,10 @@ impl<'a> ops::Add<Point<'a>> for Point<'a> {
 }
 
 // TODO: Why is it so slow?
-impl<'a> ops::Mul<U512> for Point<'a> {
-    type Output = Point<'a>;
+impl ops::Mul<U512> for Point {
+    type Output = Point;
 
-    fn mul(mut self, rhs: U512) -> Point<'a> {
+    fn mul(mut self, rhs: U512) -> Point {
         if rhs.is_zero() {
             self.curve.pt(U512::zero(), U512::zero())
         } else if rhs.is_even() {
@@ -63,7 +63,7 @@ impl<'a> ops::Mul<U512> for Point<'a> {
     }
 }
 
-impl<'a> cmp::PartialEq for Point<'a> {
+impl cmp::PartialEq for Point {
     fn eq(&self, rhs: &Point) -> bool {
         self.x == rhs.x && self.y == rhs.y
     }
@@ -73,39 +73,40 @@ impl<'a> cmp::PartialEq for Point<'a> {
     }
 }
 
-impl<'a> cmp::Eq for Point<'a> {}
+impl cmp::Eq for Point {}
 
-impl<'a> fmt::Display for Point<'a> {
+impl fmt::Display for Point {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "({}, {})", self.x, self.y)
     }
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct EllipticCurve {
+pub struct Curve {
     a: U512,
     b: U512,
     gf: GF,
 }
 
 // TODO: Use some trait like "IntoModular" or whatever for overloading
-impl EllipticCurve {
-    pub fn new(a: U512, b: U512, gf: GF) -> EllipticCurve {
-        EllipticCurve {
+impl Curve {
+    pub fn new(a: U512, b: U512, gf: GF) -> Curve {
+        Curve {
             a: a,
             b: b,
             gf: gf,
         }
     }
-    pub fn pt<'a>(&'a self, x: U512, y: U512) -> Point {
+
+    pub fn pt(&self, x: U512, y: U512) -> Point {
         Point {
             x: self.gf.el(x),
             y: self.gf.el(y),
-            curve: &self,
+            curve: *self,
         }
     }
 
-    pub fn num<'a>(&'a self, x: U512) -> ModularNumber {
+    pub fn num(&self, x: U512) -> ModularNumber {
         self.gf.el(x)
     }
 }
