@@ -43,7 +43,6 @@ impl ModularNumber {
         while !new_r.is_zero() {
             let quotient = r / new_r;
             self -= self.n(quotient) * new_t;
-            //t -= self.n(quotient) * new_t;
             mem::swap(&mut self, &mut new_t);
 
             r -= quotient * new_r;
@@ -62,7 +61,6 @@ impl fmt::Display for ModularNumber {
     }
 }
 
-// TODO: Need Inverse
 impl ops::Add for ModularNumber {
     type Output = ModularNumber;
     fn add(mut self, rhs: ModularNumber) -> ModularNumber {
@@ -94,7 +92,6 @@ impl ops::SubAssign for ModularNumber {
 impl ops::Div for ModularNumber {
     type Output = ModularNumber;
     fn div(mut self, rhs: ModularNumber) -> ModularNumber {
-        // TODO
         self *= rhs.invert();
         self
     }

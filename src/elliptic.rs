@@ -57,6 +57,7 @@ impl<'a> ops::Mul<U512> for Point<'a> {
             self = self * (rhs >> 1);
             self + self
         } else {
+            // TODO: This can be faster b/c just need to zero the lowest bit
             self * (rhs - U512::from_u64(1)) + self
         }
     }

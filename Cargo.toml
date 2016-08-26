@@ -4,7 +4,5 @@ version = "0.1.0"
 authors = ["WalrusCow <willgmcd@gmail.com>"]
 
 [dependencies]
-num = "0.1"
-num-traits = "*"
 rand = "0.3"
 crypto_int = { git = "ssh://git@gitlab.com/walruscow/crypto-int.git" }
