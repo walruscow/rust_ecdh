@@ -167,3 +167,22 @@ impl GF {
         ModularNumber::new(x, self.size)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crypto_int::U512;
+
+    #[test]
+    fn basic_arithmetic() {
+        let f = GF::new(U512::from_u64(13));
+        let x = f.el(U512::from_u64(7));
+        assert_eq!(x + x, f.el(U512::from_u64(1)));
+
+        let y = f.el(U512::from_u64(6));
+        assert_eq!(x + y, f.el(U512::from_u64(0)));
+
+        let z = f.el(U512::from_u64(5));
+        assert_eq!(x + z, f.el(U512::from_u64(12)));
+    }
+}

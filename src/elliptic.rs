@@ -8,8 +8,8 @@ use field::{ModularNumber, GF};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Point {
-    x: ModularNumber,
-    y: ModularNumber,
+    pub x: ModularNumber,
+    pub y: ModularNumber,
     curve: Curve,
 }
 
@@ -108,5 +108,30 @@ impl Curve {
 
     pub fn num(&self, x: U512) -> ModularNumber {
         self.gf.el(x)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crypto_int::U512;
+    use field::GF;
+
+    #[test]
+    fn basic_addition() {
+        let f = GF::new(U512::from_u64(11));
+        let e = Curve::new(
+            U512::from_u64(1),
+            U512::from_u64(6),
+            f,
+        );
+        let p1 = e.pt(U512::from_u64(2), U512::from_u64(4));
+        let p2 = e.pt(U512::from_u64(5), U512::from_u64(2));
+
+        let e1 = e.pt(U512::from_u64(2), U512::from_u64(7));
+        assert_eq!(p1 + p2, e1);
+
+        let e2 = e.pt(U512::from_u64(5), U512::from_u64(9));
+        assert_eq!(p1 + p1, e2);
     }
 }

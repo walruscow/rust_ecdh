@@ -1,15 +1,21 @@
 extern crate crypto_int;
 extern crate rand;
+extern crate sha;
 
 mod field;
-mod elliptic;
+pub mod elliptic;
 
 use crypto_int::U512;
+use sha::Sha256;
+
+pub struct Generator {
+    pub point: elliptic::Point,
+    pub order: U512,
+}
 
 pub struct ECC {
-    curve: elliptic::Curve,
-    gen: elliptic::Point,
-    order: U512,
+    pub curve: elliptic::Curve,
+    pub generator: Generator,
 }
 
 pub fn brainpool_p256_r1() -> ECC {
@@ -35,74 +41,91 @@ pub fn brainpool_p256_r1() -> ECC {
     );
     ECC {
         curve: brainpool_p256_r1_curve,
-        gen: brainpool_p256_r1_curve.pt(
-            U512::from_bytes_be(vec![
-                0x8B, 0xD2, 0xAE, 0xB9, 0xCB, 0x7E, 0x57, 0xCB,
-                0x2C, 0x4B, 0x48, 0x2F, 0xFC, 0x81, 0xB7, 0xAF,
-                0xB9, 0xDE, 0x27, 0xE1, 0xE3, 0xBD, 0x23, 0xC2,
-                0x3A, 0x44, 0x53, 0xBD, 0x9A, 0xCE, 0x32, 0x62,
+        generator: Generator {
+            point: brainpool_p256_r1_curve.pt(
+                U512::from_bytes_be(vec![
+                    0x8B, 0xD2, 0xAE, 0xB9, 0xCB, 0x7E, 0x57, 0xCB,
+                    0x2C, 0x4B, 0x48, 0x2F, 0xFC, 0x81, 0xB7, 0xAF,
+                    0xB9, 0xDE, 0x27, 0xE1, 0xE3, 0xBD, 0x23, 0xC2,
+                    0x3A, 0x44, 0x53, 0xBD, 0x9A, 0xCE, 0x32, 0x62,
+                ]),
+                U512::from_bytes_be(vec![
+                    0x54, 0x7E, 0xF8, 0x35, 0xC3, 0xDA, 0xC4, 0xFD,
+                    0x97, 0xF8, 0x46, 0x1A, 0x14, 0x61, 0x1D, 0xC9,
+                    0xC2, 0x77, 0x45, 0x13, 0x2D, 0xED, 0x8E, 0x54,
+                    0x5C, 0x1D, 0x54, 0xC7, 0x2F, 0x04, 0x69, 0x97,
+                ]),
+            ),
+            order: U512::from_bytes_be(vec![
+                0xA9, 0xFB, 0x57, 0xDB, 0xA1, 0xEE, 0xA9, 0xBC,
+                0x3E, 0x66, 0x0A, 0x90, 0x9D, 0x83, 0x8D, 0x71,
+                0x8C, 0x39, 0x7A, 0xA3, 0xB5, 0x61, 0xA6, 0xF7,
+                0x90, 0x1E, 0x0E, 0x82, 0x97, 0x48, 0x56, 0xA7,
             ]),
-            U512::from_bytes_be(vec![
-                0x54, 0x7E, 0xF8, 0x35, 0xC3, 0xDA, 0xC4, 0xFD,
-                0x97, 0xF8, 0x46, 0x1A, 0x14, 0x61, 0x1D, 0xC9,
-                0xC2, 0x77, 0x45, 0x13, 0x2D, 0xED, 0x8E, 0x54,
-                0x5C, 0x1D, 0x54, 0xC7, 0x2F, 0x04, 0x69, 0x97,
-            ]),
-        ),
-        order: U512::from_bytes_be(vec![
-            0xA9, 0xFB, 0x57, 0xDB, 0xA1, 0xEE, 0xA9, 0xBC,
-            0x3E, 0x66, 0x0A, 0x90, 0x9D, 0x83, 0x8D, 0x71,
-            0x8C, 0x39, 0x7A, 0xA3, 0xB5, 0x61, 0xA6, 0xF7,
-            0x90, 0x1E, 0x0E, 0x82, 0x97, 0x48, 0x56, 0xA7,
-        ]),
+        },
     }
+}
+
+pub struct DiffieSecret(U512);
+pub struct DiffiePublic(elliptic::Point);
+
+pub fn get_shared_key(
+    my_secret: &DiffieSecret,
+    their_public: &DiffiePublic,
+) -> [u8; 32] {
+    let sec = &(my_secret.0);
+    let publ = &(their_public.0);
+    let key_bytes = (*publ * *sec).x.value.to_bytes_le();
+
+    // Hash the coordinate just in case :)
+    let mut sha = Sha256::new();
+    for b in &key_bytes[0..32] {
+        sha.add_byte(*b);
+    }
+    sha.digest()
+}
+
+pub fn get_diffie_pair<R: rand::Rng>(
+    ecc_params: &ECC,
+    rng: &mut R,
+) -> (DiffieSecret, DiffiePublic) {
+    let secret = U512::random_in_range(
+        U512::from_u64(1),
+        ecc_params.generator.order,
+        rng,
+    );
+    let public = ecc_params.generator.point * secret;
+    (DiffieSecret(secret), DiffiePublic(public))
 }
 
 #[cfg(test)]
 mod tests {
-    use field;
     use elliptic::{Point, Curve};
     use crypto_int::U512;
-    use rand::OsRng;
+    use rand;
     use super::*;
 
     #[test]
     fn it_works() {
         let ecc = brainpool_p256_r1();
         let expected = ecc.curve.pt(U512::zero(), U512::zero());
-        assert_eq!(ecc.gen * ecc.order, expected);
+        assert_eq!(ecc.generator.point * ecc.generator.order, expected);
     }
 
     #[test]
-    fn basic_addition() {
-        let f = field::GF::new(U512::from_u64(11));
-        let e = Curve::new(
-            U512::from_u64(1),
-            U512::from_u64(6),
-            f,
-        );
-        let p1 = e.pt(U512::from_u64(2), U512::from_u64(4));
-        let p2 = e.pt(U512::from_u64(5), U512::from_u64(2));
-
-        let e1 = e.pt(U512::from_u64(2), U512::from_u64(7));
-        assert_eq!(p1 + p2, e1);
-
-        let e2 = e.pt(U512::from_u64(5), U512::from_u64(9));
-        assert_eq!(p1 + p1, e2);
-    }
-
-    #[test]
-    #[ignore]
     fn diffie() {
         let ecc = brainpool_p256_r1();
 
-        let mut rng = OsRng::new().unwrap();
+        let mut rng = rand::OsRng::new().unwrap();
 
-        let d_a = U512::random_in_range(U512::from_u64(1), ecc.order, &mut rng);
-        let d_b = U512::random_in_range(U512::from_u64(1), ecc.order, &mut rng);
+        let (s1, p1) = get_diffie_pair(&ecc, &mut rng);
+        let (s2, p2) = get_diffie_pair(&ecc, &mut rng);
 
-        let thing1 = ecc.gen * d_a;
-        let thing2 = ecc.gen * d_b;
-        assert_eq!(thing1 * d_b, thing2 * d_a);
+        let key1 = get_shared_key(&s1, &p2);
+        let key2 = get_shared_key(&s2, &p1);
+
+        for (x, y) in key1.iter().zip(key2.iter()) {
+            assert_eq!(*x, *y);
+        }
     }
 }

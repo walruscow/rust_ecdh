@@ -6,3 +6,4 @@ authors = ["WalrusCow <willgmcd@gmail.com>"]
 [dependencies]
 rand = "0.3"
 crypto_int = { git = "ssh://git@gitlab.com/walruscow/crypto-int.git" }
+sha = { git = "ssh://git@gitlab.com/walruscow/sha.git" }
