@@ -28,9 +28,9 @@ impl ops::Add<Point> for Point {
             return self.curve.pt(U512::zero(), U512::zero());
         }
 
-        // Both points are the same
         let m: ModularNumber;
         if self == other {
+            // Both points are the same
             let a = self.curve.num(self.curve.a);
             let x_sqr = self.x * self.x;
             // Do a really weird * 3, because multiplying is real slow
