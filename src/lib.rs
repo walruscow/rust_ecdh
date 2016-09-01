@@ -8,11 +8,13 @@ pub mod elliptic;
 use crypto_int::U512;
 use sha::Sha256;
 
+#[derive(Debug)]
 pub struct Generator {
     pub point: elliptic::Point,
     pub order: U512,
 }
 
+#[derive(Debug)]
 pub struct ECC {
     pub curve: elliptic::Curve,
     pub generator: Generator,
@@ -66,10 +68,13 @@ pub fn brainpool_p256_r1() -> ECC {
     }
 }
 
+#[derive(Debug)]
 pub struct DHSecret(U512);
-// TODO: Make this serializable or something....
+
+#[derive(Debug)]
 pub struct DHPublic(elliptic::Point);
 
+#[derive(Debug)]
 pub struct DHPair {
     pub secret: DHSecret,
     pub public: DHPublic,
