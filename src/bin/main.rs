@@ -1,9 +1,7 @@
 extern crate crypto_int;
 extern crate ecdh;
-extern crate rand;
 
 use crypto_int::U512;
-use rand::OsRng;
 
 fn main() {
     let ecc = ecdh::brainpool_p256_r1();

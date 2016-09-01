@@ -66,12 +66,18 @@ pub fn brainpool_p256_r1() -> ECC {
     }
 }
 
-pub struct DiffieSecret(U512);
-pub struct DiffiePublic(elliptic::Point);
+pub struct DHSecret(U512);
+// TODO: Make this serializable or something....
+pub struct DHPublic(elliptic::Point);
+
+pub struct DHPair {
+    pub secret: DHSecret,
+    pub public: DHPublic,
+}
 
 pub fn get_shared_key(
-    my_secret: &DiffieSecret,
-    their_public: &DiffiePublic,
+    my_secret: &DHSecret,
+    their_public: &DHPublic,
 ) -> [u8; 32] {
     let sec = &(my_secret.0);
     let publ = &(their_public.0);
@@ -85,24 +91,31 @@ pub fn get_shared_key(
     sha.digest()
 }
 
-pub fn get_diffie_pair<R: rand::Rng>(
-    ecc_params: &ECC,
-    rng: &mut R,
-) -> (DiffieSecret, DiffiePublic) {
-    let secret = U512::random_in_range(
-        U512::from_u64(1),
-        ecc_params.generator.order,
-        rng,
-    );
-    let public = ecc_params.generator.point * secret;
-    (DiffieSecret(secret), DiffiePublic(public))
+trait GenDH {
+    fn gen_dh_pair(&mut self, ecc_params: &ECC) -> DHPair;
+}
+
+// We only want this on OsRng because it is secure
+impl GenDH for rand::os::OsRng {
+    fn gen_dh_pair(&mut self, ecc_params: &ECC) -> DHPair {
+        let secret = U512::random_in_range(
+            U512::from_u64(1),
+            ecc_params.generator.order,
+            self,
+        );
+        let public = ecc_params.generator.point * secret;
+        DHPair {
+            secret: DHSecret(secret),
+            public: DHPublic(public),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use elliptic::{Point, Curve};
     use crypto_int::U512;
     use rand;
+    use GenDH;
     use super::*;
 
     #[test]
@@ -118,11 +131,11 @@ mod tests {
 
         let mut rng = rand::OsRng::new().unwrap();
 
-        let (s1, p1) = get_diffie_pair(&ecc, &mut rng);
-        let (s2, p2) = get_diffie_pair(&ecc, &mut rng);
+        let pair1 = rng.gen_dh_pair(&ecc);
+        let pair2 = rng.gen_dh_pair(&ecc);
 
-        let key1 = get_shared_key(&s1, &p2);
-        let key2 = get_shared_key(&s2, &p1);
+        let key1 = get_shared_key(&pair1.secret, &pair2.public);
+        let key2 = get_shared_key(&pair2.secret, &pair1.public);
 
         for (x, y) in key1.iter().zip(key2.iter()) {
             assert_eq!(*x, *y);
