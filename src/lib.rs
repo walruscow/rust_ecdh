@@ -2,25 +2,27 @@ extern crate crypto_int;
 extern crate rand;
 extern crate sha;
 
+mod dh;
 mod field;
-pub mod elliptic;
+mod elliptic;
 
 use crypto_int::U512;
-use sha::Sha256;
+
+pub use dh::{DHPair, DHPublic, GenDH};
 
 #[derive(Debug)]
-pub struct Generator {
-    pub point: elliptic::Point,
-    pub order: U512,
+struct Generator {
+    point: elliptic::Point,
+    order: U512,
 }
 
 #[derive(Debug)]
-pub struct ECC {
-    pub curve: elliptic::Curve,
-    pub generator: Generator,
+pub struct ECCParams {
+    curve: elliptic::Curve,
+    generator: Generator,
 }
 
-pub fn brainpool_p256_r1() -> ECC {
+pub fn brainpool_p256_r1() -> ECCParams {
     let brainpool_p256_r1_curve: elliptic::Curve = elliptic::Curve::new(
         U512::from_bytes_be(vec![
             0x7D, 0x5A, 0x09, 0x75, 0xFC, 0x2C, 0x30, 0x57,
@@ -41,7 +43,7 @@ pub fn brainpool_p256_r1() -> ECC {
             0x20, 0x13, 0x48, 0x1D, 0x1F, 0x6E, 0x53, 0x77,
         ])),
     );
-    ECC {
+    ECCParams {
         curve: brainpool_p256_r1_curve,
         generator: Generator {
             point: brainpool_p256_r1_curve.pt(
@@ -68,59 +70,10 @@ pub fn brainpool_p256_r1() -> ECC {
     }
 }
 
-#[derive(Debug)]
-pub struct DHSecret(U512);
-
-#[derive(Debug)]
-pub struct DHPublic(elliptic::Point);
-
-#[derive(Debug)]
-pub struct DHPair {
-    pub secret: DHSecret,
-    pub public: DHPublic,
-}
-
-pub fn get_shared_key(
-    my_secret: &DHSecret,
-    their_public: &DHPublic,
-) -> [u8; 32] {
-    let sec = &(my_secret.0);
-    let publ = &(their_public.0);
-    let key_bytes = (*publ * *sec).x.value.to_bytes_le();
-
-    // Hash the coordinate just in case :)
-    let mut sha = Sha256::new();
-    for b in &key_bytes[0..32] {
-        sha.add_byte(*b);
-    }
-    sha.digest()
-}
-
-trait GenDH {
-    fn gen_dh_pair(&mut self, ecc_params: &ECC) -> DHPair;
-}
-
-// We only want this on OsRng because it is secure
-impl GenDH for rand::os::OsRng {
-    fn gen_dh_pair(&mut self, ecc_params: &ECC) -> DHPair {
-        let secret = U512::random_in_range(
-            U512::from_u64(1),
-            ecc_params.generator.order,
-            self,
-        );
-        let public = ecc_params.generator.point * secret;
-        DHPair {
-            secret: DHSecret(secret),
-            public: DHPublic(public),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crypto_int::U512;
     use rand;
-    use GenDH;
     use super::*;
 
     #[test]
@@ -128,22 +81,5 @@ mod tests {
         let ecc = brainpool_p256_r1();
         let expected = ecc.curve.pt(U512::zero(), U512::zero());
         assert_eq!(ecc.generator.point * ecc.generator.order, expected);
-    }
-
-    #[test]
-    fn diffie() {
-        let ecc = brainpool_p256_r1();
-
-        let mut rng = rand::OsRng::new().unwrap();
-
-        let pair1 = rng.gen_dh_pair(&ecc);
-        let pair2 = rng.gen_dh_pair(&ecc);
-
-        let key1 = get_shared_key(&pair1.secret, &pair2.public);
-        let key2 = get_shared_key(&pair2.secret, &pair1.public);
-
-        for (x, y) in key1.iter().zip(key2.iter()) {
-            assert_eq!(*x, *y);
-        }
     }
 }
