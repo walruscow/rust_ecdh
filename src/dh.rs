@@ -1,15 +1,12 @@
 use std::io::{Read, Write};
-use std::io::Error as IoError;
 
 use crypto_int::U512;
 use rand;
 use sha::Sha256;
 
-use super::{elliptic, ECCParams};
-
-pub enum SerializationError {
-    IoError(IoError),
-}
+use elliptic;
+use super::ECCParams;
+use encoding::*;
 
 #[derive(Debug)]
 struct DHSecret(U512);
@@ -18,8 +15,18 @@ struct DHSecret(U512);
 pub struct DHPublic(elliptic::Point);
 
 impl DHPublic {
-    pub fn serialize_to<W: Write>(w: &mut W) -> Result<(), SerializationError> {
-        Ok(())
+    pub fn encode_to(&self, writer: &mut Write) -> EncodingResult {
+        self.0.encode_to(writer)
+    }
+
+    pub fn decode_from(
+        reader: &mut Read,
+        ecc: &ECCParams,
+    ) -> DecodingResult<DHPublic> {
+        match elliptic::Point::decode_from(reader, &ecc.curve) {
+            Ok(p) => Ok(DHPublic(p)),
+            Err(e) => Err(e),
+        }
     }
 }
 

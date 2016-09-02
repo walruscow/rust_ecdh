@@ -5,6 +5,7 @@ extern crate sha;
 mod dh;
 mod field;
 mod elliptic;
+pub mod encoding;
 
 use crypto_int::U512;
 
@@ -73,7 +74,6 @@ pub fn brainpool_p256_r1() -> ECCParams {
 #[cfg(test)]
 mod tests {
     use crypto_int::U512;
-    use rand;
     use super::*;
 
     #[test]

@@ -1,16 +1,53 @@
 use std::cmp;
 use std::fmt;
+use std::io::{Read, Write};
 use std::ops;
 
 use crypto_int::U512;
 
 use field::{ModularNumber, GF};
+use encoding::*;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Point {
     pub x: ModularNumber,
     pub y: ModularNumber,
     curve: Curve,
+}
+
+impl Point {
+    pub fn encode_to(&self, writer: &mut Write) -> EncodingResult {
+        let bytes = self.x.value.to_bytes_le();
+        match writer.write_all(&bytes) {
+            Ok(_) => (),
+            Err(e) => return Err(EncodingError::IoError(e)),
+        }
+        let bytes = self.y.value.to_bytes_le();
+        match writer.write_all(&bytes) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(EncodingError::IoError(e)),
+        }
+    }
+
+    pub fn decode_from(
+        reader: &mut Read,
+        curve: &Curve,
+    ) -> DecodingResult<Point> {
+        let mut x = (&[0u8; 64]).to_vec();
+        match reader.read_exact(&mut x) {
+            Ok(_) => (),
+            Err(e) => return Err(DecodingError::IoError(e)),
+        }
+        let x = U512::from_bytes_le(x);
+
+        let mut y = (&[0u8; 64]).to_vec();
+        match reader.read_exact(&mut y) {
+            Ok(_) => (),
+            Err(e) => return Err(DecodingError::IoError(e)),
+        }
+        let y = U512::from_bytes_le(y);
+        Ok(curve.pt(x, y))
+    }
 }
 
 impl ops::Add<Point> for Point {
@@ -116,6 +153,7 @@ mod tests {
     use super::*;
     use crypto_int::U512;
     use field::GF;
+    use std::io::{Read, Write, Result};
 
     #[test]
     fn basic_addition() {
@@ -133,5 +171,51 @@ mod tests {
 
         let e2 = e.pt(U512::from_u64(5), U512::from_u64(9));
         assert_eq!(p1 + p1, e2);
+    }
+
+    // Some basic read/write stuff because idk how to use a vec...
+    struct Writer { pub buf: Vec<u8> }
+    impl Write for Writer {
+        fn write(&mut self, buf: &[u8]) -> Result<usize> {
+            let mut x = 0;
+            for b in buf.iter() {
+                self.buf.push(*b);
+                x += 1;
+            }
+            Ok(x)
+        }
+        fn flush(&mut self) -> Result<()> { Ok(()) }
+    }
+
+    struct Reader { pub buf: Vec<u8>, pub rc: usize }
+    impl Read for Reader {
+        fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+            let mut x = 0;
+            for (a, b) in buf.iter_mut().zip(self.buf.iter().skip(self.rc)) {
+                *a = *b;
+                x += 1;
+                self.rc += 1;
+            }
+            Ok(x)
+        }
+    }
+
+    #[test]
+    fn encode_decode() {
+        let f = GF::new(U512::from_u64(11));
+        let e = Curve::new(
+            U512::from_u64(1),
+            U512::from_u64(6),
+            f,
+        );
+        let point = e.pt(U512::from_u64(2), U512::from_u64(4));
+        let buf = {
+            let mut writer = Writer { buf: Vec::new(), };
+            point.encode_to(&mut writer).unwrap();
+            writer.buf
+        };
+        let mut reader = Reader { buf: buf, rc: 0};
+        let decoded_pt = Point::decode_from(&mut reader, &e).unwrap();
+        assert_eq!(decoded_pt, point);
     }
 }
