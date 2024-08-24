@@ -1,7 +1,7 @@
 use std::cmp;
 use std::fmt;
-use std::ops;
 use std::mem;
+use std::ops;
 
 use crypto_int::U512;
 
@@ -20,7 +20,7 @@ pub struct ModularNumber {
 impl ModularNumber {
     pub fn new(value: U512, modulus: U512) -> ModularNumber {
         ModularNumber {
-            modulus: modulus,
+            modulus,
             value: value % modulus,
         }
     }
@@ -35,7 +35,7 @@ impl ModularNumber {
 
     pub fn invert(mut self) -> ModularNumber {
         let mut r: U512 = self.modulus;
-        let mut new_r: U512= self.value;
+        let mut new_r: U512 = self.value;
 
         self.value = U512::zero();
         let mut new_t = self.n(U512::from_u64(1));
@@ -157,10 +157,8 @@ pub struct GF {
 }
 
 impl GF {
-    pub fn new(size: U512) -> GF {
-        GF {
-            size: size,
-        }
+    pub const fn new(size: U512) -> GF {
+        GF { size }
     }
 
     pub fn el(&self, x: U512) -> ModularNumber {

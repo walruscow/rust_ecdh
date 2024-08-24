@@ -5,8 +5,8 @@ use std::ops;
 
 use crypto_int::U512;
 
-use field::{ModularNumber, GF};
 use encoding::*;
+use field::{ModularNumber, GF};
 
 #[derive(Copy, Clone, Debug)]
 pub struct Point {
@@ -29,10 +29,7 @@ impl Point {
         }
     }
 
-    pub fn decode_from(
-        reader: &mut Read,
-        curve: &Curve,
-    ) -> DecodingResult<Point> {
+    pub fn decode_from(reader: &mut Read, curve: &Curve) -> DecodingResult<Point> {
         let mut x = (&[0u8; 64]).to_vec();
         match reader.read_exact(&mut x) {
             Ok(_) => (),
@@ -127,12 +124,8 @@ pub struct Curve {
 
 // TODO: Use some trait like "IntoModular" or whatever for overloading
 impl Curve {
-    pub fn new(a: U512, b: U512, gf: GF) -> Curve {
-        Curve {
-            a: a,
-            b: b,
-            gf: gf,
-        }
+    pub const fn new(a: U512, b: U512, gf: GF) -> Curve {
+        Curve { a, b, gf }
     }
 
     pub fn pt(&self, x: U512, y: U512) -> Point {
@@ -153,16 +146,12 @@ mod tests {
     use super::*;
     use crypto_int::U512;
     use field::GF;
-    use std::io::{Read, Write, Result};
+    use std::io::{Read, Result, Write};
 
     #[test]
     fn basic_addition() {
         let f = GF::new(U512::from_u64(11));
-        let e = Curve::new(
-            U512::from_u64(1),
-            U512::from_u64(6),
-            f,
-        );
+        let e = Curve::new(U512::from_u64(1), U512::from_u64(6), f);
         let p1 = e.pt(U512::from_u64(2), U512::from_u64(4));
         let p2 = e.pt(U512::from_u64(5), U512::from_u64(2));
 
@@ -174,7 +163,9 @@ mod tests {
     }
 
     // Some basic read/write stuff because idk how to use a vec...
-    struct Writer { pub buf: Vec<u8> }
+    struct Writer {
+        pub buf: Vec<u8>,
+    }
     impl Write for Writer {
         fn write(&mut self, buf: &[u8]) -> Result<usize> {
             let mut x = 0;
@@ -184,10 +175,15 @@ mod tests {
             }
             Ok(x)
         }
-        fn flush(&mut self) -> Result<()> { Ok(()) }
+        fn flush(&mut self) -> Result<()> {
+            Ok(())
+        }
     }
 
-    struct Reader { pub buf: Vec<u8>, pub rc: usize }
+    struct Reader {
+        pub buf: Vec<u8>,
+        pub rc: usize,
+    }
     impl Read for Reader {
         fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
             let mut x = 0;
@@ -203,18 +199,14 @@ mod tests {
     #[test]
     fn encode_decode() {
         let f = GF::new(U512::from_u64(11));
-        let e = Curve::new(
-            U512::from_u64(1),
-            U512::from_u64(6),
-            f,
-        );
+        let e = Curve::new(U512::from_u64(1), U512::from_u64(6), f);
         let point = e.pt(U512::from_u64(2), U512::from_u64(4));
         let buf = {
-            let mut writer = Writer { buf: Vec::new(), };
+            let mut writer = Writer { buf: Vec::new() };
             point.encode_to(&mut writer).unwrap();
             writer.buf
         };
-        let mut reader = Reader { buf: buf, rc: 0};
+        let mut reader = Reader { buf, rc: 0 };
         let decoded_pt = Point::decode_from(&mut reader, &e).unwrap();
         assert_eq!(decoded_pt, point);
     }

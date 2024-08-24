@@ -4,8 +4,8 @@ use crypto_int::U512;
 use rand;
 use sha::Sha256;
 
+use super::ECC;
 use elliptic;
-use super::ECCParams;
 use encoding::*;
 
 #[derive(Debug)]
@@ -15,14 +15,11 @@ struct DHSecret(U512);
 pub struct DHPublic(elliptic::Point);
 
 impl DHPublic {
-    pub fn encode_to(&self, writer: &mut Write) -> EncodingResult {
+    pub fn encode_to(&self, writer: &mut dyn Write) -> EncodingResult {
         self.0.encode_to(writer)
     }
 
-    pub fn decode_from(
-        reader: &mut Read,
-        ecc: &ECCParams,
-    ) -> DecodingResult<DHPublic> {
+    pub fn decode_from(reader: &mut dyn Read, ecc: &ECC) -> DecodingResult<DHPublic> {
         match elliptic::Point::decode_from(reader, &ecc.curve) {
             Ok(p) => Ok(DHPublic(p)),
             Err(e) => Err(e),
@@ -50,17 +47,13 @@ impl DHPair {
 }
 
 pub trait GenDH {
-    fn gen_dh_pair(&mut self, ecc_params: &ECCParams) -> DHPair;
+    fn gen_dh_pair(&mut self, ecc_params: &ECC) -> DHPair;
 }
 
 // We only want this on OsRng because it is secure
 impl GenDH for rand::os::OsRng {
-    fn gen_dh_pair(&mut self, ecc_params: &ECCParams) -> DHPair {
-        let secret = U512::random_in_range(
-            U512::from_u64(1),
-            ecc_params.generator.order,
-            self,
-        );
+    fn gen_dh_pair(&mut self, ecc_params: &ECC) -> DHPair {
+        let secret = U512::random_in_range(U512::from_u64(1), ecc_params.generator.order, self);
         let public = ecc_params.generator.point * secret;
         DHPair {
             secret: DHSecret(secret),

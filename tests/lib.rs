@@ -5,7 +5,7 @@ use ecdh::GenDH;
 
 #[test]
 fn dh_interface() {
-    let ecc = ecdh::brainpool_p256_r1();
+    let ecc: ecdh::ECC = ecdh::BRAINPOOL_P256_R1.into();
     let mut rng = rand::OsRng::new().unwrap();
 
     let pair1 = rng.gen_dh_pair(&ecc);

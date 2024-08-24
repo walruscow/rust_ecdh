@@ -3,82 +3,83 @@ extern crate rand;
 extern crate sha;
 
 mod dh;
-mod field;
 mod elliptic;
 pub mod encoding;
+mod field;
 
 use crypto_int::U512;
 
 pub use dh::{DHPair, DHPublic, GenDH};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 struct Generator {
     point: elliptic::Point,
     order: U512,
 }
 
-#[derive(Debug)]
+/// Basic parameters for elliptic curve cryptography.
+/// Some of these are provided as constants, like P-256
+/// To perform ECC operations, ECCParams can be converted to ECC,
+/// which has the actual curve and generator structs.
+#[derive(Debug, Clone, Copy)]
 pub struct ECCParams {
+    pub p: U512,
+    pub a: U512,
+    pub b: U512,
+    pub g: (U512, U512),
+    pub n: U512,
+}
+
+/// A bunch of parameters wrapped in fairly usable structs for doing ECC operations
+#[derive(Debug, Clone, Copy)]
+pub struct ECC {
     curve: elliptic::Curve,
     generator: Generator,
 }
 
-pub fn brainpool_p256_r1() -> ECCParams {
-    let brainpool_p256_r1_curve: elliptic::Curve = elliptic::Curve::new(
-        U512::from_bytes_be(vec![
-            0x7D, 0x5A, 0x09, 0x75, 0xFC, 0x2C, 0x30, 0x57,
-            0xEE, 0xF6, 0x75, 0x30, 0x41, 0x7A, 0xFF, 0xE7,
-            0xFB, 0x80, 0x55, 0xC1, 0x26, 0xDC, 0x5C, 0x6C,
-            0xE9, 0x4A, 0x4B, 0x44, 0xF3, 0x30, 0xB5, 0xD9,
-        ]),
-        U512::from_bytes_be(vec![
-            0x26, 0xDC, 0x5C, 0x6C, 0xE9, 0x4A, 0x4B, 0x44,
-            0xF3, 0x30, 0xB5, 0xD9, 0xBB, 0xD7, 0x7C, 0xBF,
-            0x95, 0x84, 0x16, 0x29, 0x5C, 0xF7, 0xE1, 0xCE,
-            0x6B, 0xCC, 0xDC, 0x18, 0xFF, 0x8C, 0x07, 0xB6,
-        ]),
-        field::GF::new(U512::from_bytes_be(vec![
-            0xA9, 0xFB, 0x57, 0xDB, 0xA1, 0xEE, 0xA9, 0xBC,
-            0x3E, 0x66, 0x0A, 0x90, 0x9D, 0x83, 0x8D, 0x72,
-            0x6E, 0x3B, 0xF6, 0x23, 0xD5, 0x26, 0x20, 0x28,
-            0x20, 0x13, 0x48, 0x1D, 0x1F, 0x6E, 0x53, 0x77,
-        ])),
-    );
-    ECCParams {
-        curve: brainpool_p256_r1_curve,
-        generator: Generator {
-            point: brainpool_p256_r1_curve.pt(
-                U512::from_bytes_be(vec![
-                    0x8B, 0xD2, 0xAE, 0xB9, 0xCB, 0x7E, 0x57, 0xCB,
-                    0x2C, 0x4B, 0x48, 0x2F, 0xFC, 0x81, 0xB7, 0xAF,
-                    0xB9, 0xDE, 0x27, 0xE1, 0xE3, 0xBD, 0x23, 0xC2,
-                    0x3A, 0x44, 0x53, 0xBD, 0x9A, 0xCE, 0x32, 0x62,
-                ]),
-                U512::from_bytes_be(vec![
-                    0x54, 0x7E, 0xF8, 0x35, 0xC3, 0xDA, 0xC4, 0xFD,
-                    0x97, 0xF8, 0x46, 0x1A, 0x14, 0x61, 0x1D, 0xC9,
-                    0xC2, 0x77, 0x45, 0x13, 0x2D, 0xED, 0x8E, 0x54,
-                    0x5C, 0x1D, 0x54, 0xC7, 0x2F, 0x04, 0x69, 0x97,
-                ]),
-            ),
-            order: U512::from_bytes_be(vec![
-                0xA9, 0xFB, 0x57, 0xDB, 0xA1, 0xEE, 0xA9, 0xBC,
-                0x3E, 0x66, 0x0A, 0x90, 0x9D, 0x83, 0x8D, 0x71,
-                0x8C, 0x39, 0x7A, 0xA3, 0xB5, 0x61, 0xA6, 0xF7,
-                0x90, 0x1E, 0x0E, 0x82, 0x97, 0x48, 0x56, 0xA7,
-            ]),
-        },
+impl From<ECCParams> for ECC {
+    fn from(params: ECCParams) -> Self {
+        let curve = elliptic::Curve::new(params.a, params.b, field::GF::new(params.p));
+        ECC {
+            curve,
+            generator: Generator {
+                point: curve.pt(params.g.0, params.g.1),
+                order: params.n,
+            },
+        }
     }
 }
 
+pub const P_256: ECCParams = ECCParams {
+    p: U512::from_hex_be(b"ffffffff00000001000000000000000000000000ffffffffffffffffffffffff"),
+    a: U512::from_hex_be(b"ffffffff00000001000000000000000000000000fffffffffffffffffffffffc"),
+    b: U512::from_hex_be(b"5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b"),
+    g: (
+        U512::from_hex_be(b"6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296"),
+        U512::from_hex_be(b"4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5"),
+    ),
+    n: U512::from_hex_be(b"ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"),
+};
+
+pub const BRAINPOOL_P256_R1: ECCParams = ECCParams {
+    a: U512::from_hex_be(b"7d5a0975fc2c3057eef67530417affe7fb8055c126dc5c6ce94a4b44f330b5d9"),
+    b: U512::from_hex_be(b"26dc5c6ce94a4b44f330b5d9bbd77cbf958416295cf7e1ce6bccdc18ff8c07b6"),
+    p: U512::from_hex_be(b"a9fb57dba1eea9bc3e660a909d838d726e3bf623d52620282013481d1f6e5377"),
+    g: (
+        U512::from_hex_be(b"8bd2aeb9cb7e57cb2c4b482ffc81b7afb9de27e1e3bd23c23a4453bd9ace3262"),
+        U512::from_hex_be(b"547ef835c3dac4fd97f8461a14611dc9c27745132ded8e545c1d54c72f046997"),
+    ),
+    n: U512::from_hex_be(b"a9fb57dba1eea9bc3e660a909d838d718c397aa3b561a6f7901e0e82974856a7"),
+};
+
 #[cfg(test)]
 mod tests {
-    use crypto_int::U512;
     use super::*;
+    use crypto_int::U512;
 
     #[test]
     fn it_works() {
-        let ecc = brainpool_p256_r1();
+        let ecc: ECC = BRAINPOOL_P256_R1.into();
         let expected = ecc.curve.pt(U512::zero(), U512::zero());
         assert_eq!(ecc.generator.point * ecc.generator.order, expected);
     }
