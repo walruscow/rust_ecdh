@@ -16,7 +16,7 @@ pub struct Point {
 }
 
 impl Point {
-    pub fn encode_to(&self, writer: &mut Write) -> EncodingResult {
+    pub fn encode_to(&self, writer: &mut dyn Write) -> EncodingResult {
         let bytes = self.x.value.to_bytes_le();
         match writer.write_all(&bytes) {
             Ok(_) => (),
@@ -29,7 +29,7 @@ impl Point {
         }
     }
 
-    pub fn decode_from(reader: &mut Read, curve: &Curve) -> DecodingResult<Point> {
+    pub fn decode_from(reader: &mut dyn Read, curve: &Curve) -> DecodingResult<Point> {
         let mut x = (&[0u8; 64]).to_vec();
         match reader.read_exact(&mut x) {
             Ok(_) => (),
